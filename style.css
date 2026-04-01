@@ -66,6 +66,43 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 }
 .hint { font-size: 0.75rem; color: #888; }
 
+/* ===== Preset Bar ===== */
+.preset-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid #eee;
+}
+.preset-label { font-size: 0.82rem; font-weight: 600; color: #777; text-transform: uppercase; letter-spacing: 0.03em; }
+.btn-preset {
+    padding: 0.3rem 0.8rem;
+    border: 1.5px solid #cdd0d6;
+    border-radius: 20px;
+    background: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #444;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-preset:hover { border-color: #4361ee; color: #4361ee; background: #eef1ff; }
+.btn-preset.active { border-color: #4361ee; color: #fff; background: #4361ee; }
+.preset-notes {
+    display: none;
+    background: #f0f4ff;
+    border-left: 3px solid #4361ee;
+    padding: 0.55rem 0.85rem;
+    margin-bottom: 0.85rem;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.82rem;
+    color: #333;
+    line-height: 1.5;
+}
+.preset-notes strong { color: #16213e; }
+
 .checkbox-field {
     flex-direction: row;
     align-items: center;

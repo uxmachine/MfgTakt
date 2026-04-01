@@ -9,6 +9,96 @@ const DEFAULT_STATIONS = [
     { name: "Packaging",          type: "manual",  cycleTime: 30, operators: 1 },
 ];
 
+// ===== Regional Presets =====
+// Based on real manufacturing norms: working days, statutory holidays,
+// typical shift patterns, mandated breaks, common plant shutdowns.
+const PRESETS = {
+    us: {
+        label: "US",
+        workingDays: 22,           // ~260/yr ÷ 12
+        shifts: 2,
+        hoursPerShift: 8,
+        breaksPerShift: 30,        // two 15-min breaks
+        plannedDowntime: 10,
+        oee: 85,
+        robots247: true,
+        annualHolidays: 10,        // federal holidays (plants vary 6-11)
+        shutdownDays: 5,           // typical summer/year-end
+        maxWeeklyHours: 50,        // no federal cap but OSHA fatigue guidance; OT after 40
+        notes: "No federal max hours. OT pay after 40h/week. OSHA recommends fatigue management above 50h.",
+    },
+    uk: {
+        label: "UK",
+        workingDays: 21,           // ~252/yr ÷ 12
+        shifts: 2,
+        hoursPerShift: 8,
+        breaksPerShift: 30,        // 20 min statutory + 10 min allowance
+        plannedDowntime: 10,
+        oee: 85,
+        robots247: true,
+        annualHolidays: 8,         // bank holidays
+        shutdownDays: 5,           // common Christmas shutdown
+        maxWeeklyHours: 48,        // Working Time Regulations (opt-out available)
+        notes: "Working Time Regs: 48h/week max (opt-out possible). 28 days paid leave incl. bank holidays. 20-min break every 6h.",
+    },
+    "eu-de": {
+        label: "EU (Germany)",
+        workingDays: 20,           // ~220-230/yr ÷ 12 (generous leave)
+        shifts: 2,
+        hoursPerShift: 7.5,        // 37.5h week common in IG Metall agreements
+        breaksPerShift: 30,        // 30 min mandatory after 6h
+        plannedDowntime: 15,
+        oee: 85,
+        robots247: true,
+        annualHolidays: 12,        // varies by state (9-13)
+        shutdownDays: 8,           // Betriebsferien (summer + Christmas)
+        maxWeeklyHours: 48,        // Arbeitszeitgesetz max; standard is 35-37.5h (IG Metall)
+        notes: "Arbeitszeitgesetz: max 48h/week, typical IG Metall contract 35-37.5h. 30-min break after 6h. 20+ vacation days + 9-13 public holidays.",
+    },
+    "eu-fr": {
+        label: "EU (France)",
+        workingDays: 19,           // ~218/yr ÷ 12 (RTT days reduce this)
+        shifts: 2,
+        hoursPerShift: 7,          // 35h week legal standard
+        breaksPerShift: 30,        // 20 min statutory minimum, 30 typical
+        plannedDowntime: 15,
+        oee: 82,
+        robots247: true,
+        annualHolidays: 11,        // jours fériés
+        shutdownDays: 10,          // August + Christmas closures common
+        maxWeeklyHours: 44,        // 44h avg over 12 weeks; absolute max 48h
+        notes: "Code du Travail: 35h standard week. Max 44h averaged over 12 weeks (absolute 48h). 25+ vacation days + RTT. 11 public holidays.",
+    },
+    jp: {
+        label: "Japan",
+        workingDays: 21,           // ~250/yr ÷ 12
+        shifts: 2,
+        hoursPerShift: 8,
+        breaksPerShift: 45,        // 45 min for 8h+ shifts (Labor Standards Act)
+        plannedDowntime: 5,        // kaizen/TPM culture = lower unplanned downtime
+        oee: 90,                   // typically higher OEE targets
+        robots247: true,
+        annualHolidays: 16,        // national holidays
+        shutdownDays: 7,           // Golden Week + Obon + New Year
+        maxWeeklyHours: 45,        // Labor Standards Act base; OT agreements (36 Agreement) can extend
+        notes: "Labor Standards Act: 40h base, 45-min break for 8h+. 36 Agreement allows OT. High OEE targets (TPM culture). 16 national holidays.",
+    },
+    cn: {
+        label: "China",
+        workingDays: 22,           // ~250/yr ÷ 12
+        shifts: 2,
+        hoursPerShift: 8,
+        breaksPerShift: 30,
+        plannedDowntime: 10,
+        oee: 80,
+        robots247: true,
+        annualHolidays: 11,        // statutory (7 festivals, some multi-day)
+        shutdownDays: 5,           // Chinese New Year (some factories close 2+ weeks)
+        maxWeeklyHours: 44,        // Labor Law standard; OT capped at 36h/month
+        notes: "Labor Law: 44h standard week. OT limited to 36h/month. Chinese New Year shutdown varies (1-3 weeks). 5-15 vacation days by tenure.",
+    },
+};
+
 // ===== DOM refs =====
 const $ = (sel) => document.querySelector(sel);
 const stationsBody = $("#stations-body");
@@ -19,6 +109,11 @@ document.addEventListener("DOMContentLoaded", () => {
     $("#add-station-btn").addEventListener("click", () => addStationRow());
     $("#calculate-btn").addEventListener("click", calculate);
 
+    // Preset buttons
+    document.querySelectorAll(".btn-preset").forEach((btn) => {
+        btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
+    });
+
     // Auto-recalculate on any input change
     document.addEventListener("input", debounce(autoCalc, 400));
     document.addEventListener("change", debounce(autoCalc, 200));
@@ -27,6 +122,47 @@ document.addEventListener("DOMContentLoaded", () => {
 let hasCalculated = false;
 function autoCalc() {
     if (hasCalculated) calculate();
+}
+
+// ===== Apply Preset =====
+function applyPreset(key) {
+    const p = PRESETS[key];
+    if (!p) return;
+
+    // Highlight active button
+    document.querySelectorAll(".btn-preset").forEach((b) => b.classList.remove("active"));
+    document.querySelector(`.btn-preset[data-preset="${key}"]`).classList.add("active");
+
+    // Fill fields
+    $("#working-days").value = p.workingDays;
+    $("#shifts-manual").value = p.shifts;
+    $("#hours-per-shift").value = p.hoursPerShift;
+    $("#breaks-per-shift").value = p.breaksPerShift;
+    $("#planned-downtime").value = p.plannedDowntime;
+    $("#oee").value = p.oee;
+    $("#robots-24-7").checked = p.robots247;
+    $("#annual-holidays").value = p.annualHolidays;
+    $("#annual-shutdown-days").value = p.shutdownDays;
+    $("#max-weekly-hours").value = p.maxWeeklyHours;
+
+    // Show notes
+    showPresetNotes(p.notes, p.label);
+
+    autoCalc();
+}
+
+function showPresetNotes(text, label) {
+    let el = document.getElementById("preset-notes");
+    if (!el) {
+        el = document.createElement("div");
+        el.id = "preset-notes";
+        el.className = "preset-notes";
+        // Insert after preset bar
+        const presetBar = document.querySelector(".preset-bar");
+        presetBar.parentNode.insertBefore(el, presetBar.nextSibling);
+    }
+    el.innerHTML = `<strong>${label}:</strong> ${text}`;
+    el.style.display = "block";
 }
 
 function debounce(fn, ms) {
@@ -61,22 +197,36 @@ function readInputs() {
     const demandPeriod = $("#demand-period").value;
     const demandQty = parseFloat($("#demand-qty").value) || 0;
     const demandVariation = parseFloat($("#demand-variation").value) || 0;
-    const workingDays = parseFloat($("#working-days").value) || 22;
+    const workingDaysInput = parseFloat($("#working-days").value) || 22;
     const shiftsManual = parseFloat($("#shifts-manual").value) || 1;
     const hoursPerShift = parseFloat($("#hours-per-shift").value) || 8;
     const breaksPerShift = parseFloat($("#breaks-per-shift").value) || 0;
     const plannedDowntime = parseFloat($("#planned-downtime").value) || 0;
     const oee = (parseFloat($("#oee").value) || 85) / 100;
     const robots247 = $("#robots-24-7").checked;
+    const annualHolidays = parseFloat($("#annual-holidays").value) || 0;
+    const shutdownDays = parseFloat($("#annual-shutdown-days").value) || 0;
+    const maxWeeklyHours = parseFloat($("#max-weekly-hours").value) || 48;
+
+    // Effective working days per month (subtract holidays & shutdowns spread across 12 months)
+    const lostDaysPerMonth = (annualHolidays + shutdownDays) / 12;
+    const effectiveWorkingDays = Math.max(1, workingDaysInput - lostDaysPerMonth);
+
+    // Annual effective working days for yearly demand conversion
+    const annualWorkingDays = effectiveWorkingDays * 12;
 
     // Convert demand to daily
     let dailyDemand;
     if (demandPeriod === "yearly") {
-        dailyDemand = demandQty / (workingDays * 12);
+        dailyDemand = demandQty / annualWorkingDays;
     } else {
-        dailyDemand = demandQty / workingDays;
+        dailyDemand = demandQty / effectiveWorkingDays;
     }
     const dailyDemandPeak = dailyDemand * (1 + demandVariation / 100);
+
+    // Check if shift pattern exceeds regulated max weekly hours
+    const weeklyHoursPlanned = shiftsManual * hoursPerShift * 5; // assume 5-day week
+    const hoursExceeded = weeklyHoursPlanned > maxWeeklyHours;
 
     // Available time per day (seconds) — Manual
     const netMinutesPerShift = (hoursPerShift * 60) - breaksPerShift - plannedDowntime;
@@ -85,11 +235,10 @@ function readInputs() {
     // Available time per day (seconds) — Robotic
     let availRoboticSec;
     if (robots247) {
-        // 24h minus only planned downtime per shift × 3 shifts, adjusted by OEE
         const robotNetMin = (24 * 60) - (plannedDowntime * 3);
         availRoboticSec = robotNetMin * 60 * oee;
     } else {
-        availRoboticSec = availManualSec; // same as manual if not 24/7
+        availRoboticSec = availManualSec;
     }
 
     // Stations
@@ -108,11 +257,18 @@ function readInputs() {
     return {
         dailyDemand,
         dailyDemandPeak,
+        effectiveWorkingDays,
+        annualWorkingDays,
         availManualSec,
         availRoboticSec,
         oee,
         stations,
         shiftsManual,
+        hoursExceeded,
+        weeklyHoursPlanned,
+        maxWeeklyHours,
+        annualHolidays,
+        shutdownDays,
     };
 }
 
@@ -208,6 +364,8 @@ function calculate() {
     $("#res-meets-peak").textContent = meetsPeak ? "Yes" : "No";
     $("#res-meets-peak").style.color = meetsPeak ? "#155724" : "#721c24";
     $("#res-operators").textContent = totalOperators + " (per shift)";
+    $("#res-eff-days").textContent = data.effectiveWorkingDays.toFixed(1) + " days";
+    $("#res-annual-days").textContent = Math.round(data.annualWorkingDays) + " days";
 
     // Station table
     const tbody = $("#results-body");
@@ -294,6 +452,16 @@ function renderRecommendations(stationResults, data, taktBase, taktPeak, through
         li.textContent = text;
         ul.appendChild(li);
     };
+
+    // Regulatory hours warning
+    if (data.hoursExceeded) {
+        add(`Planned shift pattern (${data.weeklyHoursPlanned}h/week) exceeds regulated max (${data.maxWeeklyHours}h/week). Reduce shifts/hours or verify local overtime agreements.`, "rec-danger");
+    }
+
+    // Effective working days info
+    if (data.annualHolidays > 0 || data.shutdownDays > 0) {
+        add(`Effective working days: ${data.effectiveWorkingDays.toFixed(1)}/month (${Math.round(data.annualWorkingDays)}/year) after accounting for ${data.annualHolidays} public holidays and ${data.shutdownDays} shutdown days.`, "rec-info");
+    }
 
     // Bottleneck warnings
     const overTakt = stationResults.filter((s) => s.taktRatio > 1.0);
