@@ -173,6 +173,7 @@ function debounce(fn, ms) {
 // ===== Station Row Management =====
 function addStationRow(data = {}) {
     const tr = document.createElement("tr");
+    const parallel = data.parallel || 1;
     tr.innerHTML = `
         <td><input type="text" class="st-name" value="${data.name || ""}" placeholder="Station name"></td>
         <td>
@@ -182,12 +183,26 @@ function addStationRow(data = {}) {
             </select>
         </td>
         <td><input type="number" class="st-cycle" min="1" value="${data.cycleTime || ""}" placeholder="sec"></td>
+        <td class="parallel-cell">
+            <button class="btn-parallel btn-par-minus" title="Remove parallel">−</button>
+            <span class="st-parallel-count">${parallel}</span>
+            <button class="btn-parallel btn-par-plus" title="Add parallel">+</button>
+        </td>
         <td><input type="number" class="st-operators" min="0" value="${data.operators ?? 1}"></td>
         <td><button class="btn-remove" title="Remove">&times;</button></td>
     `;
     tr.querySelector(".btn-remove").addEventListener("click", () => {
         tr.remove();
         autoCalc();
+    });
+    const countEl = tr.querySelector(".st-parallel-count");
+    tr.querySelector(".btn-par-plus").addEventListener("click", () => {
+        countEl.textContent = parseInt(countEl.textContent) + 1;
+        autoCalc();
+    });
+    tr.querySelector(".btn-par-minus").addEventListener("click", () => {
+        const cur = parseInt(countEl.textContent);
+        if (cur > 1) { countEl.textContent = cur - 1; autoCalc(); }
     });
     stationsBody.appendChild(tr);
 }
@@ -248,9 +263,11 @@ function readInputs() {
         const name = row.querySelector(".st-name").value.trim() || "Unnamed";
         const type = row.querySelector(".st-type").value;
         const cycleTime = parseFloat(row.querySelector(".st-cycle").value) || 0;
+        const parallel = parseInt(row.querySelector(".st-parallel-count").textContent) || 1;
         const operators = parseInt(row.querySelector(".st-operators").value) || 0;
         if (cycleTime > 0) {
-            stations.push({ name, type, cycleTime, operators });
+            const effectiveCycleTime = cycleTime / parallel;
+            stations.push({ name, type, cycleTime, effectiveCycleTime, parallel, operators: operators * parallel });
         }
     });
 
@@ -292,20 +309,19 @@ function calculate() {
 
     const stationResults = stations.map((st) => {
         const avail = st.type === "robotic" ? availRoboticSec : availManualSec;
-        const maxOutput = Math.floor(avail / st.cycleTime);
+        // With parallel stations, effective output = parallel × (avail / cycleTime)
+        const maxOutput = Math.floor(avail / st.effectiveCycleTime);
 
-        // Effective cycle time accounts for available time ratio
-        // For robotic stations with more time, their effective takt pressure is different
+        // Takt ratio uses effective cycle time (cycle / parallel count)
         const effectiveTakt = avail / dailyDemand;
-        const taktRatio = st.cycleTime / effectiveTakt;
+        const taktRatio = st.effectiveCycleTime / effectiveTakt;
 
-        // Determine if this station is bottleneck based on ratio
         if (taktRatio > bottleneckEffectiveCycle) {
             bottleneckEffectiveCycle = taktRatio;
-            bottleneckStation = st.name;
+            bottleneckStation = st.name + (st.parallel > 1 ? ` (×${st.parallel})` : "");
         }
 
-        totalCycleTime += st.cycleTime;
+        totalCycleTime += st.effectiveCycleTime;
         totalOperators += st.operators;
 
         let status, statusClass;
@@ -337,9 +353,9 @@ function calculate() {
     , stationResults[0]);
     const throughputPerDay = bottleneckResult.maxOutput;
 
-    // Line balance efficiency
+    // Line balance efficiency (based on effective cycle times)
     const numStations = stations.length;
-    const maxCycle = Math.max(...stations.map((s) => s.cycleTime));
+    const maxCycle = Math.max(...stations.map((s) => s.effectiveCycleTime));
     const lineBalance = (totalCycleTime / (numStations * maxCycle)) * 100;
 
     // Meets demand?
@@ -376,6 +392,8 @@ function calculate() {
             <td><strong>${s.name}</strong></td>
             <td>${s.type === "robotic" ? "Robotic" : "Manual"}</td>
             <td>${s.cycleTime} sec</td>
+            <td>${s.parallel > 1 ? "×" + s.parallel : "1"}</td>
+            <td>${s.effectiveCycleTime.toFixed(1)} sec</td>
             <td>${formatTime(s.avail)}</td>
             <td>${s.maxOutput.toLocaleString()}</td>
             <td>${(s.taktRatio * 100).toFixed(1)}%</td>
@@ -399,7 +417,7 @@ function renderChart(stationResults, taktBase, taktPeak) {
     const container = $("#chart-container");
     container.innerHTML = "";
 
-    const maxVal = Math.max(taktBase, taktPeak, ...stationResults.map((s) => s.cycleTime));
+    const maxVal = Math.max(taktBase, taktPeak, ...stationResults.map((s) => s.effectiveCycleTime));
     const chartHeight = 200; // px for bars
 
     // Takt line (base)
@@ -421,14 +439,14 @@ function renderChart(stationResults, taktBase, taktPeak) {
         const group = document.createElement("div");
         group.className = "chart-bar-group";
 
-        const barHeight = (s.cycleTime / maxVal) * chartHeight;
+        const barHeight = (s.effectiveCycleTime / maxVal) * chartHeight;
         const bar = document.createElement("div");
         bar.className = `chart-bar ${s.type}`;
         bar.style.height = barHeight + "px";
 
         const valLabel = document.createElement("div");
         valLabel.className = "chart-bar-value";
-        valLabel.textContent = s.cycleTime + "s";
+        valLabel.textContent = s.effectiveCycleTime.toFixed(1) + "s" + (s.parallel > 1 ? " (×" + s.parallel + ")" : "");
 
         const nameLabel = document.createElement("div");
         nameLabel.className = "chart-bar-label";

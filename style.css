@@ -103,6 +103,38 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 }
 .preset-notes strong { color: #16213e; }
 
+/* ===== Parallel Station Controls ===== */
+.parallel-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    justify-content: center;
+}
+.btn-parallel {
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid #cdd0d6;
+    border-radius: 50%;
+    background: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    transition: all 0.12s;
+    padding: 0;
+}
+.btn-parallel:hover { border-color: #4361ee; color: #4361ee; background: #eef1ff; }
+.st-parallel-count {
+    font-weight: 700;
+    font-size: 0.95rem;
+    min-width: 1.2rem;
+    text-align: center;
+}
+
 .checkbox-field {
     flex-direction: row;
     align-items: center;

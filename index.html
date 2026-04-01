@@ -111,13 +111,14 @@
         <!-- SECTION 3: Assembly Stations -->
         <section class="card" id="stations-section">
             <h2>3. Assembly Stations</h2>
-            <p class="hint">Define each station in your assembly line. Mark robotic stations — they get more available time.</p>
+            <p class="hint">Define each station in your assembly line. Mark robotic stations — they get more available time. Use Parallel to double up bottleneck stations.</p>
             <table id="stations-table">
                 <thead>
                     <tr>
                         <th>Station Name</th>
                         <th>Type</th>
                         <th>Cycle Time (sec)</th>
+                        <th>Parallel</th>
                         <th>Operators</th>
                         <th></th>
                     </tr>
@@ -206,6 +207,8 @@
                             <th>Station</th>
                             <th>Type</th>
                             <th>Cycle Time</th>
+                            <th>Parallel</th>
+                            <th>Eff. Cycle</th>
                             <th>Avail. Time/Day</th>
                             <th>Max Output/Day</th>
                             <th>Takt Ratio</th>
