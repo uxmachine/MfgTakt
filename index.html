@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MfgTakt — Manufacturing Takt &amp; Cycle Time Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>MfgTakt</h1>
+        <p class="subtitle">Manufacturing Takt &amp; Cycle Time Calculator</p>
+    </header>
+
+    <main>
+        <!-- SECTION 1: Product & Demand -->
+        <section class="card" id="demand-section">
+            <h2>1. Product &amp; Demand</h2>
+            <div class="form-row">
+                <div class="field">
+                    <label for="product-name">Product Name</label>
+                    <input type="text" id="product-name" placeholder="e.g. Widget Assembly A" value="Assembly A">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field">
+                    <label for="demand-period">Demand Period</label>
+                    <select id="demand-period">
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="demand-qty">Demand Quantity</label>
+                    <input type="number" id="demand-qty" min="1" value="10000">
+                </div>
+                <div class="field">
+                    <label for="demand-variation">Demand Variation (%)</label>
+                    <input type="number" id="demand-variation" min="0" max="100" value="15">
+                    <span class="hint">Peak demand = base + variation %</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: Available Time -->
+        <section class="card" id="time-section">
+            <h2>2. Available Production Time</h2>
+            <div class="form-row">
+                <div class="field">
+                    <label for="working-days">Working Days / Month</label>
+                    <input type="number" id="working-days" min="1" max="31" value="22">
+                </div>
+                <div class="field">
+                    <label for="shifts-manual">Shifts (Manual Stations)</label>
+                    <input type="number" id="shifts-manual" min="1" max="3" value="2">
+                </div>
+                <div class="field">
+                    <label for="hours-per-shift">Hours / Shift</label>
+                    <input type="number" id="hours-per-shift" min="1" max="12" step="0.5" value="8">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field">
+                    <label for="breaks-per-shift">Break Time / Shift (min)</label>
+                    <input type="number" id="breaks-per-shift" min="0" max="120" value="30">
+                </div>
+                <div class="field">
+                    <label for="planned-downtime">Planned Downtime / Shift (min)</label>
+                    <input type="number" id="planned-downtime" min="0" max="120" value="10">
+                    <span class="hint">Changeover, maintenance, etc.</span>
+                </div>
+                <div class="field">
+                    <label for="oee">OEE Target (%)</label>
+                    <input type="number" id="oee" min="1" max="100" value="85">
+                    <span class="hint">Overall Equipment Effectiveness</span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field checkbox-field">
+                    <input type="checkbox" id="robots-24-7" checked>
+                    <label for="robots-24-7">Robotic stations run 24/7 (3 shifts, no breaks)</label>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: Assembly Stations -->
+        <section class="card" id="stations-section">
+            <h2>3. Assembly Stations</h2>
+            <p class="hint">Define each station in your assembly line. Mark robotic stations — they get more available time.</p>
+            <table id="stations-table">
+                <thead>
+                    <tr>
+                        <th>Station Name</th>
+                        <th>Type</th>
+                        <th>Cycle Time (sec)</th>
+                        <th>Operators</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="stations-body">
+                    <!-- rows added by JS -->
+                </tbody>
+            </table>
+            <button class="btn btn-secondary" id="add-station-btn">+ Add Station</button>
+        </section>
+
+        <!-- Calculate -->
+        <div class="calc-actions">
+            <button class="btn btn-primary" id="calculate-btn">Calculate Takt &amp; Cycle Times</button>
+        </div>
+
+        <!-- SECTION 4: Results -->
+        <section class="card results-card hidden" id="results-section">
+            <h2>4. Results</h2>
+
+            <div class="results-grid">
+                <div class="result-box">
+                    <span class="result-label">Daily Demand (base)</span>
+                    <span class="result-value" id="res-daily-demand">—</span>
+                </div>
+                <div class="result-box peak">
+                    <span class="result-label">Daily Demand (peak)</span>
+                    <span class="result-value" id="res-daily-demand-peak">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Available Time / Day (Manual)</span>
+                    <span class="result-value" id="res-avail-manual">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Available Time / Day (Robotic)</span>
+                    <span class="result-value" id="res-avail-robotic">—</span>
+                </div>
+                <div class="result-box highlight">
+                    <span class="result-label">Takt Time (base)</span>
+                    <span class="result-value" id="res-takt">—</span>
+                </div>
+                <div class="result-box highlight peak">
+                    <span class="result-label">Takt Time (peak)</span>
+                    <span class="result-value" id="res-takt-peak">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Bottleneck Station</span>
+                    <span class="result-value" id="res-bottleneck">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Line Balance Efficiency</span>
+                    <span class="result-value" id="res-balance">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Theoretical Output / Day</span>
+                    <span class="result-value" id="res-throughput">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Meets Base Demand?</span>
+                    <span class="result-value" id="res-meets-base">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Meets Peak Demand?</span>
+                    <span class="result-value" id="res-meets-peak">—</span>
+                </div>
+                <div class="result-box">
+                    <span class="result-label">Total Operators Needed</span>
+                    <span class="result-value" id="res-operators">—</span>
+                </div>
+            </div>
+
+            <!-- Station Details Table -->
+            <h3>Station Analysis</h3>
+            <div class="table-wrap">
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Station</th>
+                            <th>Type</th>
+                            <th>Cycle Time</th>
+                            <th>Avail. Time/Day</th>
+                            <th>Max Output/Day</th>
+                            <th>Takt Ratio</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Bar Chart -->
+            <h3>Cycle Time vs Takt Time</h3>
+            <div class="chart-container" id="chart-container">
+                <!-- drawn by JS -->
+            </div>
+
+            <!-- Recommendations -->
+            <h3>Recommendations</h3>
+            <ul id="recommendations" class="recommendations"></ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>MfgTakt &mdash; Takt Time = Available Production Time &divide; Customer Demand</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
