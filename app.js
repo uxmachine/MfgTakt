@@ -107,7 +107,7 @@ const stationsBody = $("#stations-body");
 document.addEventListener("DOMContentLoaded", () => {
     DEFAULT_STATIONS.forEach((s) => addStationRow(s));
     $("#add-station-btn").addEventListener("click", () => addStationRow());
-    $("#calculate-btn").addEventListener("click", calculate);
+    $("#calculate-btn").addEventListener("click", () => calculate(true));
 
     // Preset buttons
     document.querySelectorAll(".btn-preset").forEach((btn) => {
@@ -290,7 +290,7 @@ function readInputs() {
 }
 
 // ===== Calculate =====
-function calculate() {
+function calculate(scroll = false) {
     hasCalculated = true;
     const data = readInputs();
     const { dailyDemand, dailyDemandPeak, availManualSec, availRoboticSec, stations } = data;
@@ -409,7 +409,7 @@ function calculate() {
     renderRecommendations(stationResults, data, taktBase, taktPeak, throughputPerDay, lineBalance, meetsBase, meetsPeak);
 
     // Scroll to results
-    resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (scroll) resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ===== Chart =====
