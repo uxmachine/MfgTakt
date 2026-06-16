@@ -19,6 +19,56 @@ header {
 header h1 { font-size: 2rem; letter-spacing: 0.04em; }
 header .subtitle { opacity: 0.75; margin-top: 0.25rem; font-size: 1rem; }
 
+/* ===== Projects Bar ===== */
+.projects-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid rgba(255,255,255,0.15);
+}
+.projects-bar input[type="text"] {
+    padding: 0.4rem 0.75rem;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 0.88rem;
+    width: 180px;
+    outline: none;
+}
+.projects-bar input[type="text"]::placeholder { color: rgba(255,255,255,0.5); }
+.projects-bar input[type="text"]:focus { border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.18); }
+.projects-bar select {
+    padding: 0.4rem 0.6rem;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 0.88rem;
+    min-width: 160px;
+    outline: none;
+    cursor: pointer;
+}
+.projects-bar select option { background: #16213e; color: #fff; }
+.btn-proj {
+    padding: 0.4rem 0.9rem;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+}
+.btn-proj-save { background: #4361ee; color: #fff; border-color: #4361ee; }
+.btn-proj-save:hover { background: #3a56d4; border-color: #3a56d4; }
+.btn-proj-delete { background: transparent; color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.2); }
+.btn-proj-delete:hover { background: rgba(231,76,60,0.25); color: #ff8888; border-color: rgba(231,76,60,0.5); }
+
 /* ===== Main ===== */
 main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 
@@ -102,38 +152,6 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
     line-height: 1.5;
 }
 .preset-notes strong { color: #16213e; }
-
-/* ===== Parallel Station Controls ===== */
-.parallel-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    justify-content: center;
-}
-.btn-parallel {
-    width: 26px;
-    height: 26px;
-    border: 1.5px solid #cdd0d6;
-    border-radius: 50%;
-    background: #fff;
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #555;
-    transition: all 0.12s;
-    padding: 0;
-}
-.btn-parallel:hover { border-color: #4361ee; color: #4361ee; background: #eef1ff; }
-.st-parallel-count {
-    font-weight: 700;
-    font-size: 0.95rem;
-    min-width: 1.2rem;
-    text-align: center;
-}
 
 .checkbox-field {
     flex-direction: row;
