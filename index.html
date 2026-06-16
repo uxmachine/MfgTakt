@@ -10,6 +10,14 @@
     <header>
         <h1>MfgTakt</h1>
         <p class="subtitle">Manufacturing Takt &amp; Cycle Time Calculator</p>
+        <div class="projects-bar">
+            <input type="text" id="project-save-name" placeholder="Project name…" autocomplete="off">
+            <button class="btn-proj btn-proj-save" id="save-project-btn">Save</button>
+            <select id="load-project-select">
+                <option value="">— load project —</option>
+            </select>
+            <button class="btn-proj btn-proj-delete" id="delete-project-btn" title="Delete selected project">Delete</button>
+        </div>
     </header>
 
     <main>
@@ -111,14 +119,13 @@
         <!-- SECTION 3: Assembly Stations -->
         <section class="card" id="stations-section">
             <h2>3. Assembly Stations</h2>
-            <p class="hint">Define each station in your assembly line. Mark robotic stations — they get more available time. Use Parallel to double up bottleneck stations.</p>
+            <p class="hint">Define each station in your assembly line. Mark robotic stations — they get more available time.</p>
             <table id="stations-table">
                 <thead>
                     <tr>
                         <th>Station Name</th>
                         <th>Type</th>
                         <th>Cycle Time (sec)</th>
-                        <th>Parallel</th>
                         <th>Operators</th>
                         <th></th>
                     </tr>
@@ -207,8 +214,6 @@
                             <th>Station</th>
                             <th>Type</th>
                             <th>Cycle Time</th>
-                            <th>Parallel</th>
-                            <th>Eff. Cycle</th>
                             <th>Avail. Time/Day</th>
                             <th>Max Output/Day</th>
                             <th>Takt Ratio</th>
@@ -238,3 +243,4 @@
     <script src="app.js"></script>
 </body>
 </html>
+

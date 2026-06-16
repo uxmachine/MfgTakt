@@ -107,7 +107,7 @@ const stationsBody = $("#stations-body");
 document.addEventListener("DOMContentLoaded", () => {
     DEFAULT_STATIONS.forEach((s) => addStationRow(s));
     $("#add-station-btn").addEventListener("click", () => addStationRow());
-    $("#calculate-btn").addEventListener("click", () => calculate(true));
+    $("#calculate-btn").addEventListener("click", calculate);
 
     // Preset buttons
     document.querySelectorAll(".btn-preset").forEach((btn) => {
@@ -117,6 +117,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Auto-recalculate on any input change
     document.addEventListener("input", debounce(autoCalc, 400));
     document.addEventListener("change", debounce(autoCalc, 200));
+
+    initProjects();
 });
 
 let hasCalculated = false;
@@ -173,7 +175,6 @@ function debounce(fn, ms) {
 // ===== Station Row Management =====
 function addStationRow(data = {}) {
     const tr = document.createElement("tr");
-    const parallel = data.parallel || 1;
     tr.innerHTML = `
         <td><input type="text" class="st-name" value="${data.name || ""}" placeholder="Station name"></td>
         <td>
@@ -183,26 +184,12 @@ function addStationRow(data = {}) {
             </select>
         </td>
         <td><input type="number" class="st-cycle" min="1" value="${data.cycleTime || ""}" placeholder="sec"></td>
-        <td class="parallel-cell">
-            <button class="btn-parallel btn-par-minus" title="Remove parallel">−</button>
-            <span class="st-parallel-count">${parallel}</span>
-            <button class="btn-parallel btn-par-plus" title="Add parallel">+</button>
-        </td>
         <td><input type="number" class="st-operators" min="0" value="${data.operators ?? 1}"></td>
         <td><button class="btn-remove" title="Remove">&times;</button></td>
     `;
     tr.querySelector(".btn-remove").addEventListener("click", () => {
         tr.remove();
         autoCalc();
-    });
-    const countEl = tr.querySelector(".st-parallel-count");
-    tr.querySelector(".btn-par-plus").addEventListener("click", () => {
-        countEl.textContent = parseInt(countEl.textContent) + 1;
-        autoCalc();
-    });
-    tr.querySelector(".btn-par-minus").addEventListener("click", () => {
-        const cur = parseInt(countEl.textContent);
-        if (cur > 1) { countEl.textContent = cur - 1; autoCalc(); }
     });
     stationsBody.appendChild(tr);
 }
@@ -263,11 +250,9 @@ function readInputs() {
         const name = row.querySelector(".st-name").value.trim() || "Unnamed";
         const type = row.querySelector(".st-type").value;
         const cycleTime = parseFloat(row.querySelector(".st-cycle").value) || 0;
-        const parallel = parseInt(row.querySelector(".st-parallel-count").textContent) || 1;
         const operators = parseInt(row.querySelector(".st-operators").value) || 0;
         if (cycleTime > 0) {
-            const effectiveCycleTime = cycleTime / parallel;
-            stations.push({ name, type, cycleTime, effectiveCycleTime, parallel, operators: operators * parallel });
+            stations.push({ name, type, cycleTime, operators });
         }
     });
 
@@ -290,7 +275,7 @@ function readInputs() {
 }
 
 // ===== Calculate =====
-function calculate(scroll = false) {
+function calculate() {
     hasCalculated = true;
     const data = readInputs();
     const { dailyDemand, dailyDemandPeak, availManualSec, availRoboticSec, stations } = data;
@@ -309,19 +294,20 @@ function calculate(scroll = false) {
 
     const stationResults = stations.map((st) => {
         const avail = st.type === "robotic" ? availRoboticSec : availManualSec;
-        // With parallel stations, effective output = parallel × (avail / cycleTime)
-        const maxOutput = Math.floor(avail / st.effectiveCycleTime);
+        const maxOutput = Math.floor(avail / st.cycleTime);
 
-        // Takt ratio uses effective cycle time (cycle / parallel count)
+        // Effective cycle time accounts for available time ratio
+        // For robotic stations with more time, their effective takt pressure is different
         const effectiveTakt = avail / dailyDemand;
-        const taktRatio = st.effectiveCycleTime / effectiveTakt;
+        const taktRatio = st.cycleTime / effectiveTakt;
 
+        // Determine if this station is bottleneck based on ratio
         if (taktRatio > bottleneckEffectiveCycle) {
             bottleneckEffectiveCycle = taktRatio;
-            bottleneckStation = st.name + (st.parallel > 1 ? ` (×${st.parallel})` : "");
+            bottleneckStation = st.name;
         }
 
-        totalCycleTime += st.effectiveCycleTime;
+        totalCycleTime += st.cycleTime;
         totalOperators += st.operators;
 
         let status, statusClass;
@@ -353,9 +339,9 @@ function calculate(scroll = false) {
     , stationResults[0]);
     const throughputPerDay = bottleneckResult.maxOutput;
 
-    // Line balance efficiency (based on effective cycle times)
+    // Line balance efficiency
     const numStations = stations.length;
-    const maxCycle = Math.max(...stations.map((s) => s.effectiveCycleTime));
+    const maxCycle = Math.max(...stations.map((s) => s.cycleTime));
     const lineBalance = (totalCycleTime / (numStations * maxCycle)) * 100;
 
     // Meets demand?
@@ -392,8 +378,6 @@ function calculate(scroll = false) {
             <td><strong>${s.name}</strong></td>
             <td>${s.type === "robotic" ? "Robotic" : "Manual"}</td>
             <td>${s.cycleTime} sec</td>
-            <td>${s.parallel > 1 ? "×" + s.parallel : "1"}</td>
-            <td>${s.effectiveCycleTime.toFixed(1)} sec</td>
             <td>${formatTime(s.avail)}</td>
             <td>${s.maxOutput.toLocaleString()}</td>
             <td>${(s.taktRatio * 100).toFixed(1)}%</td>
@@ -409,7 +393,7 @@ function calculate(scroll = false) {
     renderRecommendations(stationResults, data, taktBase, taktPeak, throughputPerDay, lineBalance, meetsBase, meetsPeak);
 
     // Scroll to results
-    if (scroll) resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ===== Chart =====
@@ -417,7 +401,7 @@ function renderChart(stationResults, taktBase, taktPeak) {
     const container = $("#chart-container");
     container.innerHTML = "";
 
-    const maxVal = Math.max(taktBase, taktPeak, ...stationResults.map((s) => s.effectiveCycleTime));
+    const maxVal = Math.max(taktBase, taktPeak, ...stationResults.map((s) => s.cycleTime));
     const chartHeight = 200; // px for bars
 
     // Takt line (base)
@@ -439,14 +423,14 @@ function renderChart(stationResults, taktBase, taktPeak) {
         const group = document.createElement("div");
         group.className = "chart-bar-group";
 
-        const barHeight = (s.effectiveCycleTime / maxVal) * chartHeight;
+        const barHeight = (s.cycleTime / maxVal) * chartHeight;
         const bar = document.createElement("div");
         bar.className = `chart-bar ${s.type}`;
         bar.style.height = barHeight + "px";
 
         const valLabel = document.createElement("div");
         valLabel.className = "chart-bar-value";
-        valLabel.textContent = s.effectiveCycleTime.toFixed(1) + "s" + (s.parallel > 1 ? " (×" + s.parallel + ")" : "");
+        valLabel.textContent = s.cycleTime + "s";
 
         const nameLabel = document.createElement("div");
         nameLabel.className = "chart-bar-label";
@@ -534,6 +518,120 @@ function renderRecommendations(stationResults, data, taktBase, taktPeak, through
     if (totalOps > 0) {
         add(`Total operators needed per shift: ${totalOps}. With ${data.shiftsManual} shift(s), total manual headcount: ${totalOps * data.shiftsManual}.`, "rec-info");
     }
+}
+
+// ===== Projects (localStorage) =====
+const PROJECTS_KEY = "mfgtakt_projects";
+
+function getAllProjects() {
+    try { return JSON.parse(localStorage.getItem(PROJECTS_KEY)) || {}; }
+    catch { return {}; }
+}
+
+function saveAllProjects(projects) {
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+}
+
+function captureState() {
+    const stations = [];
+    stationsBody.querySelectorAll("tr").forEach((row) => {
+        stations.push({
+            name: row.querySelector(".st-name").value,
+            type: row.querySelector(".st-type").value,
+            cycleTime: row.querySelector(".st-cycle").value,
+            operators: row.querySelector(".st-operators").value,
+        });
+    });
+    return {
+        productName: $("#product-name").value,
+        demandPeriod: $("#demand-period").value,
+        demandQty: $("#demand-qty").value,
+        demandVariation: $("#demand-variation").value,
+        annualHolidays: $("#annual-holidays").value,
+        annualShutdownDays: $("#annual-shutdown-days").value,
+        maxWeeklyHours: $("#max-weekly-hours").value,
+        workingDays: $("#working-days").value,
+        shiftsManual: $("#shifts-manual").value,
+        hoursPerShift: $("#hours-per-shift").value,
+        breaksPerShift: $("#breaks-per-shift").value,
+        plannedDowntime: $("#planned-downtime").value,
+        oee: $("#oee").value,
+        robots247: $("#robots-24-7").checked,
+        stations,
+    };
+}
+
+function applyState(state) {
+    $("#product-name").value = state.productName ?? "";
+    $("#demand-period").value = state.demandPeriod ?? "monthly";
+    $("#demand-qty").value = state.demandQty ?? 10000;
+    $("#demand-variation").value = state.demandVariation ?? 15;
+    $("#annual-holidays").value = state.annualHolidays ?? 10;
+    $("#annual-shutdown-days").value = state.annualShutdownDays ?? 5;
+    $("#max-weekly-hours").value = state.maxWeeklyHours ?? 48;
+    $("#working-days").value = state.workingDays ?? 22;
+    $("#shifts-manual").value = state.shiftsManual ?? 2;
+    $("#hours-per-shift").value = state.hoursPerShift ?? 8;
+    $("#breaks-per-shift").value = state.breaksPerShift ?? 30;
+    $("#planned-downtime").value = state.plannedDowntime ?? 10;
+    $("#oee").value = state.oee ?? 85;
+    $("#robots-24-7").checked = state.robots247 ?? true;
+
+    stationsBody.innerHTML = "";
+    (state.stations || []).forEach((s) => addStationRow(s));
+
+    if (hasCalculated) calculate();
+}
+
+function refreshProjectDropdown(selectValue) {
+    const sel = $("#load-project-select");
+    const projects = getAllProjects();
+    sel.innerHTML = '<option value="">— load project —</option>';
+    Object.keys(projects).sort().forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        if (name === selectValue) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+
+function initProjects() {
+    refreshProjectDropdown();
+
+    $("#save-project-btn").addEventListener("click", () => {
+        const name = $("#project-save-name").value.trim();
+        if (!name) { alert("Enter a project name first."); return; }
+        const projects = getAllProjects();
+        projects[name] = captureState();
+        saveAllProjects(projects);
+        refreshProjectDropdown(name);
+        // Flash feedback
+        const btn = $("#save-project-btn");
+        btn.textContent = "Saved!";
+        setTimeout(() => { btn.textContent = "Save"; }, 1200);
+    });
+
+    $("#load-project-select").addEventListener("change", () => {
+        const name = $("#load-project-select").value;
+        if (!name) return;
+        const projects = getAllProjects();
+        if (projects[name]) {
+            applyState(projects[name]);
+            $("#project-save-name").value = name;
+        }
+    });
+
+    $("#delete-project-btn").addEventListener("click", () => {
+        const name = $("#load-project-select").value;
+        if (!name) return;
+        if (!confirm(`Delete project "${name}"?`)) return;
+        const projects = getAllProjects();
+        delete projects[name];
+        saveAllProjects(projects);
+        refreshProjectDropdown();
+        $("#project-save-name").value = "";
+    });
 }
 
 // ===== Helpers =====
